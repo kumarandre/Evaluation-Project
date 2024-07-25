@@ -1,0 +1,91 @@
+import spacy
+from collections import Counter
+import math
+from scipy.stats import norm
+
+# Load English language model
+nlp = spacy.load("en_core_web_sm")
+nlp.max_length = 5000000
+
+def preprocess_text(text):
+    # Tokenize and extract word stems
+    doc = nlp(text)
+    word_stems = [token.lemma_ for token in doc if not token.is_stop and token.is_alpha]
+    return word_stems
+
+def calculate_odds_ratio(text1, text2, word_stems):
+    # Preprocess texts
+    stems1 = preprocess_text(text1)
+    stems2 = preprocess_text(text2)
+
+    # Count occurrences of word stems in both texts
+    count1 = Counter(stems1)
+    count2 = Counter(stems2)
+
+    # Calculate total stem counts in both texts
+    total_count1 = sum(count1.values())
+    total_count2 = sum(count2.values())
+
+    odds_ratios = {}
+    confidence_intervals = {}
+    p_values = {}
+
+    # Calculate odds ratio for each word stem
+    for stem in word_stems:
+        # Calculate observed probabilities (with smoothing)
+        prob1 = (count1[stem] + 1) / (total_count1 + len(word_stems))
+        prob2 = (count2[stem] + 1) / (total_count2 + len(word_stems))
+
+        # Calculate odds ratio
+        odds_ratio = prob1 / prob2
+
+        # Calculate standard error
+        se = math.sqrt(1 / (count1[stem] + 1) + 1 / (count2[stem] + 1))
+
+        # Calculate z-score for 95% confidence interval
+        z = norm.ppf(0.975)
+
+        # Calculate confidence interval
+        lower_ci = odds_ratio * math.exp(-z * se)
+        upper_ci = odds_ratio * math.exp(z * se)
+
+        # Calculate p-value using log of confidence interval
+        log_odds_ratio = math.log(odds_ratio)
+        log_lower_ci = math.log(lower_ci)
+        log_upper_ci = math.log(upper_ci)
+
+        # 1. Calculate standard error
+        se_log = (log_upper_ci - log_lower_ci) / (2 * 1.96)
+
+        # 2. Calculate test statistic
+        z_score = log_odds_ratio / se_log
+
+        # 3. Calculate p-value
+        p_value = math.exp(-0.717 * abs(z_score) - 0.416 * z_score**2)
+
+        # Store odds ratio, confidence interval, and p-value
+        odds_ratios[stem] = odds_ratio
+        confidence_intervals[stem] = (lower_ci, upper_ci)
+        p_values[stem] = p_value
+
+    return odds_ratios, confidence_intervals, p_values
+
+text1 = "evaluation group 1 here "
+text2 = "evaluation group 2 here "
+
+# Word stems for analysis
+word_stems = ["text", "word", "analysis"]
+
+# Calculate odds ratios, confidence intervals, and p-values
+odds_ratios, confidence_intervals, p_values = calculate_odds_ratio(text1, text2, word_stems)
+
+# Print results
+for stem in word_stems:
+    ratio = odds_ratios[stem]
+    lower_ci, upper_ci = confidence_intervals[stem]
+    p_value = p_values[stem]
+    print(stem.ljust(11))
+    print(f"OR: {ratio:.2f}".ljust(16))
+    print(f"{'CI:'.ljust(11)} | {lower_ci:.2f} - {upper_ci:.2f}".ljust(30))
+    print(f"{'p-value:'.ljust(11)} | {p_value:.4f}")
+    print()

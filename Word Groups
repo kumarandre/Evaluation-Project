@@ -1,0 +1,129 @@
+import spacy
+from collections import Counter
+import math
+
+# Load English language model
+nlp = spacy.load("en_core_web_sm")
+nlp.max_length = 5000000
+
+
+def preprocess_text(text):
+    # Tokenize and extract word lemmas
+    doc = nlp(text)
+    word_lemmas = [token.lemma_ for token in doc if not token.is_stop and token.is_alpha]
+    return word_lemmas
+
+
+def odds_ratio_to_cohens_d(odds_ratio):
+    # Convert odds ratio to Cohen's d
+    return math.log(odds_ratio) * (math.sqrt(3) / math.pi)
+
+
+def interpret_cohens_d(d):
+    # Interpret Cohen's d
+    abs_d = abs(d)
+    if abs_d < 0.2:
+        return "Negligible"
+    elif abs_d < 0.5:
+        return "Small"
+    elif abs_d < 0.8:
+        return "Medium"
+    else:
+        return "Large"
+
+
+def calculate_odds_ratio(text1, text2, word_groups):
+    # Preprocess texts
+    lemmas1 = preprocess_text(text1)
+    lemmas2 = preprocess_text(text2)
+
+    # Lemmatize the words in each group
+    lemmatized_groups = {
+        group_name: [nlp(word)[0].lemma_ for word in group_words]
+        for group_name, group_words in word_groups.items()
+    }
+
+    # Count occurrences of word groups in both texts
+    count1 = Counter()
+    count2 = Counter()
+
+    for group_name, group_lemmas in lemmatized_groups.items():
+        count1[group_name] = sum(lemmas1.count(lemma) for lemma in group_lemmas)
+        count2[group_name] = sum(lemmas2.count(lemma) for lemma in group_lemmas)
+
+    # Calculate total lemma counts in both texts
+    total_count1 = sum(count1.values())
+    total_count2 = sum(count2.values())
+
+    odds_ratios = {}
+    confidence_intervals = {}
+    p_values = {}
+    effect_sizes = {}
+
+    # Calculate odds ratio for each word group
+    for group_name in word_groups.keys():
+        # Calculate observed probabilities
+        a = count1[group_name] + 0.5  # Add 0.5 for smoothing
+        b = count2[group_name] + 0.5  # Add 0.5 for smoothing
+        c = total_count1 - count1[group_name] + 0.5  # Add 0.5 for smoothing
+        d = total_count2 - count2[group_name] + 0.5  # Add 0.5 for smoothing
+
+        # Calculate odds ratio
+        odds_ratio = (a * d) / (b * c)
+
+        # Calculate log odds ratio and its standard error
+        log_odds_ratio = math.log(odds_ratio)
+        se = math.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+
+        # Calculate z-score for 95% confidence interval
+        z = 1.96
+
+        # Calculate confidence interval on log scale
+        lower_ci = math.exp(log_odds_ratio - z * se)
+        upper_ci = math.exp(log_odds_ratio + z * se)
+
+        # Calculate p-value
+        test_statistic = log_odds_ratio / se
+        p_value = math.exp(-0.717 * abs(test_statistic) - 0.416 * test_statistic ** 2)
+
+        # Calculate effect size (Cohen's d)
+        cohens_d = odds_ratio_to_cohens_d(odds_ratio)
+
+        # Store results
+        odds_ratios[group_name] = odds_ratio
+        confidence_intervals[group_name] = (lower_ci, upper_ci)
+        p_values[group_name] = p_value
+        effect_sizes[group_name] = cohens_d
+
+    return odds_ratios, confidence_intervals, p_values, effect_sizes
+
+# Example texts
+text1 = "ID1 has done a terrific job in VA outpatient. They has great knowledge, gives superb care, wonderful to work with. One of the best interns I've ever worked with. Very thoughtful. I really enjoyed working with ID1 on medicine consult rotation! They provided excellent clinical care for Their pts."
+
+text2 = "Management plans Curious to learn about liver disease. Fund of knowledge, work ethic, energy level, roundsmanship, and participation effectively as a team player are some of his many strengths. As above. NA as above See above. Willingness to help other members of the team. Humble, intuitive, honest, and very caring towards the difficult situations and conversations Dr. Vazquez-Montesino encountered during this rotation. Always being willing to"
+
+# Word groups for analysis
+word_groups = {
+    "Communal": ["Caring","Kind","empathy","Compassionate","Communicate","Rapport"],
+    "Grindstone": ["Conscientious","Diligent","Meticulous","Organization","Tireless","solid"],
+    "Ability": ["Intelligent","Bright","talented","Brilliant","Knowledgeable","Competent","Smart","Gifted"],
+    "Standout": ["exceptional","best","outstanding","superb","excellent","phenomenal","star","superstar","terrific","fabulous","Leader","Scholar"],
+    "Agentic":["assertive","Competent","Confident","Independent","Outspoken","Strength"]
+}
+
+# Calculate odds ratios, confidence intervals, p-values, and effect sizes
+odds_ratios, confidence_intervals, p_values, effect_sizes = calculate_odds_ratio(text1, text2, word_groups)
+
+# Print results
+for group_name in word_groups.keys():
+    ratio = odds_ratios[group_name]
+    lower_ci, upper_ci = confidence_intervals[group_name]
+    p_value = p_values[group_name]
+    effect_size = effect_sizes[group_name]
+    print(f"{group_name}:")
+    print(f"  Odds Ratio: {ratio:.2f}")
+    print(f"  95% CI: ({lower_ci:.2f}, {upper_ci:.2f})")
+    print(f"  p-value: {p_value:.4f}")
+    print(f"  Effect Size (Cohen's d): {effect_size:.2f}")
+    print(f"  Effect Size Interpretation: {interpret_cohens_d(effect_size)}")
+    print()

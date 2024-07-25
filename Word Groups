@@ -98,9 +98,8 @@ def calculate_odds_ratio(text1, text2, word_groups):
     return odds_ratios, confidence_intervals, p_values, effect_sizes
 
 # Example texts
-text1 = "ID1 has done a terrific job in VA outpatient. They has great knowledge, gives superb care, wonderful to work with. One of the best interns I've ever worked with. Very thoughtful. I really enjoyed working with ID1 on medicine consult rotation! They provided excellent clinical care for Their pts."
-
-text2 = "Management plans Curious to learn about liver disease. Fund of knowledge, work ethic, energy level, roundsmanship, and participation effectively as a team player are some of his many strengths. As above. NA as above See above. Willingness to help other members of the team. Humble, intuitive, honest, and very caring towards the difficult situations and conversations Dr. Vazquez-Montesino encountered during this rotation. Always being willing to"
+text1 = "sample text here"
+text2 = "sample text 2 here"
 
 # Word groups for analysis
 word_groups = {

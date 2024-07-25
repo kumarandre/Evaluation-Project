@@ -1,0 +1,47 @@
+import spacy
+import nltk
+from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from collections import Counter
+
+# Load English language model
+nlp = spacy.load("en_core_web_sm")
+nlp.max_length = 5000000
+
+# Initialize NLTK's Porter Stemmer
+stemmer = PorterStemmer()
+
+# Sample corpus
+corpus = [
+    "This is the first document.",
+    "This document is the second document.",
+    "And this is the third one.",
+    "Is this the first document?",
+]
+
+# Preprocess the text with NLTK Porter Stemmer
+processed_corpus = []
+for doc in corpus:
+    doc = nlp(doc.lower())  # Convert to lowercase
+    tokens = [stemmer.stem(token.text) for token in doc if not token.is_stop and token.is_alpha]  # Stemming and remove stop words and non-alphabetic tokens
+    processed_corpus.append(" ".join(tokens))
+
+# Calculate TF-IDF
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_matrix = tfidf_vectorizer.fit_transform(processed_corpus)
+
+# Get feature names (words)
+feature_names = tfidf_vectorizer.get_feature_names_out()
+
+# Get TF-IDF values for each word in the first document
+first_doc_tfidf = tfidf_matrix[0].toarray()[0]
+
+# Create a dictionary of words and their corresponding TF-IDF values
+word_tfidf_dict = {word: tfidf_value for word, tfidf_value in zip(feature_names, first_doc_tfidf)}
+
+# Get the top 50 words based on TF-IDF value
+top_50_words_tfidf = Counter(word_tfidf_dict).most_common(50)
+
+print("Top 50 words with TF-IDF values:")
+for word, tfidf in top_50_words_tfidf:
+    print(f"{word}: {tfidf}")
